@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-bg: #12140e;
+  --color-fg: #f3f0e4;
+  --color-muted: #b0af9e;
+  --color-surface: #1c1f16;
+  --color-surface-2: #26291f;
+  --color-line: #3a3e32;
+  --color-primary: #f0a202;
+  --color-primary-fg: #1a1403;
+
+  --radius-panel: 1.25rem;
+  --radius-control: 0.75rem;
+
+  --shadow-ring: 0 0 0 1px rgba(243, 240, 228, 0.1);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.45;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+.lamp-on {
+  background: var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary);
+}
+
+.finder-sweep {
+  animation: finder-sweep 1.8s ease-in-out infinite alternate;
+}
+
+.scan-beam {
+  height: 2px;
+  background: var(--color-primary);
+  box-shadow: 0 0 16px var(--color-primary);
+}
+
+@keyframes finder-sweep {
+  from {
+    transform: translateY(8%);
+  }
+  to {
+    transform: translateY(88%);
+  }
+}
+
+.dup-shake {
+  animation: dup-shake 420ms ease-out;
+}
+
+@keyframes dup-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+.pressable:active {
+  transform: scale(0.98);
+}
+
+dialog.dup-alert {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+dialog.dup-alert::backdrop {
+  background: rgba(18, 20, 14, 0.72);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finder-sweep,
+  .dup-shake,
+  .pressable:active {
+    animation: none;
+    transform: none;
+  }
+}
