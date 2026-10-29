@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Twice</title>
+    <meta
+      name="description"
+      content="Scan a barcode, keep a log, and get an alert the moment that same code shows up again."
+    />
+    <meta name="theme-color" content="#12140e" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312140e'/%3E%3Crect x='7' y='6' width='6' height='20' rx='1.5' fill='%23f0a202'/%3E%3Crect x='19' y='6' width='6' height='20' rx='1.5' fill='%23f3f0e4'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Outfit:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #12140e;
+        --fg: #f3f0e4;
+        --muted: #b0af9e;
+        --surface: #1c1f16;
+        --line: #3a3e32;
+        --primary: #f0a202;
+        --primary-fg: #1a1403;
+        --radius: 0.75rem;
+        font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      button, input { font: inherit; color: inherit; }
+      button { cursor: pointer; }
+      button:disabled { opacity: 0.45; cursor: default; }
+      :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+      main { max-width: 64rem; margin: 0 auto; padding: 1.25rem 1rem 6rem; }
+      header { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; }
+      h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+      .lede { margin: 0.25rem 0 0; max-width: 28rem; color: var(--muted); font-size: 0.9rem; }
+      .row { display: flex; align-items: center; gap: 0.5rem; }
+      .lamp { width: 0.65rem; height: 0.65rem; border-radius: 999px; background: var(--line); }
+      .lamp.on { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+      .icon-btn {
+        width: 2.75rem; height: 2.75rem; border: 0; border-radius: var(--radius);
+        background: var(--surface); box-shadow: 0 0 0 1px rgba(243, 240, 228, 0.1);
+      }
+      .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 1.25rem; }
+      .stat { background: var(--surface); border-radius: var(--radius); padding: 0.5rem 0.75rem; box-shadow: 0 0 0 1px rgba(243, 240, 228, 0.1); }
+      .stat dt { color: var(--muted); font-size: 0.75rem; }
+      .stat dd { margin: 0; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 1.5rem; font-weight: 600; }
+      .stat.hot dd { color: var(--primary); }
+      .grid { display: grid; gap: 1.25rem; margin-top: 1.25rem; }
+      @media (min-width: 960px) { .grid { grid-template-columns: 1fr 1fr; } }
+      .panel { background: var(--surface); border-radius: 1.25rem; padding: 0.85rem; box-shadow: 0 0 0 1px rgba(243, 240, 228, 0.1); }
+      .finder { position: relative; aspect-ratio: 3 / 2; border-radius: 1rem; overflow: hidden; background: #0c0e09; }
+      video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+      .overlay {
+        position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+        padding: 1rem; background: rgba(12, 14, 9, 0.55); color: var(--fg);
+      }
+      .corners { position: absolute; inset: 12%; border: 2px solid rgba(240, 162, 2, 0.85); border-radius: 0.75rem; pointer-events: none; }
+      .beam {
+        position: absolute; left: 14%; right: 14%; height: 2px; background: var(--primary);
+        box-shadow: 0 0 16px var(--primary); animation: sweep 1.8s ease-in-out infinite alternate;
+      }
+      @keyframes sweep { from { top: 18%; } to { top: 78%; } }
+      .actions, .samples { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+      .btn, .chip {
+        border: 0; border-radius: var(--radius); padding: 0.65rem 0.9rem;
+        background: var(--primary); color: var(--primary-fg); font-weight: 600;
+      }
+      .btn.ghost, .chip { background: #26291f; color: var(--fg); font-weight: 500; }
+      form { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+      input[type="text"] {
+        flex: 1; min-width: 0; border: 0; border-radius: var(--radius); padding: 0.7rem 0.8rem;
+        background: #0c0e09; box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .error, .note { margin: 0.6rem 0 0; font-size: 0.85rem; }
+      .error { color: #ffb4a2; }
+      .note { color: var(--muted); }
+      .banner { margin-top: 0.75rem; padding: 0.65rem 0.8rem; border-radius: var(--radius); background: #24301c; }
+      .log-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+      .log-head h2 { margin: 0; font-size: 1rem; }
+      ul { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
+      li { background: #0c0e09; border-radius: var(--radius); padding: 0.7rem 0.8rem; }
+      li.dup { background: #3a2c12; }
+      .code { font-family: "IBM Plex Mono", ui-monospace, monospace; word-break: break-all; }
+      .meta { color: var(--muted); font-size: 0.75rem; margin-top: 0.2rem; }
+      .badge { color: var(--primary); font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; }
+      dialog {
+        width: min(24rem, calc(100% - 2rem)); border: 0; border-radius: 1.25rem; padding: 1.25rem;
+        background: #2a2416; color: var(--fg); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+      dialog::backdrop { background: rgba(0, 0, 0, 0.62); }
+      dialog h2 { margin: 0; color: var(--primary); }
+      .foot { margin: 1rem 0 0; text-align: center; color: var(--muted); font-size: 0.75rem; }
+      @media (prefers-reduced-motion: reduce) { .beam { animation: none; top: 48%; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <div class="row">
+            <span id="lamp" class="lamp" aria-hidden="true"></span>
+            <h1>Twice</h1>
+          </div>
+          <p class="lede">Scan a barcode. It gets logged here, and the same code again sets off an alert.</p>
+        </div>
+        <div class="row">
+          <button id="sound" class="icon-btn" type="button" aria-pressed="true" aria-label="Mute alert sound">Sound</button>
+          <button id="csv" class="icon-btn" type="button" aria-label="Download log as CSV" disabled>CSV</button>
+        </div>
+      </header>
+      <dl class="stats">
+        <div class="stat"><dt>Scans</dt><dd id="n-scans">0</dd></div>
+        <div class="stat"><dt>Unique</dt><dd id="n-unique">0</dd></div>
+        <div class="stat" id="repeat-stat"><dt>Repeats</dt><dd id="n-repeats">0</dd></div>
+      </dl>
+      <div class="grid">
+        <section class="panel" aria-label="Scanner">
+          <div class="finder">
+            <video id="video" playsinline muted></video>
+            <div class="corners" aria-hidden="true"></div>
+            <div class="beam" aria-hidden="true"></div>
+            <div id="idle" class="overlay">
+              <div>
+                <p id="idle-text">Point the camera at a barcode.</p>
+                <p class="note">Or type it, or use a photo.</p>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="start" class="btn" type="button">Start camera</button>
+            <button id="stop" class="btn ghost" type="button" hidden>Stop</button>
+            <button id="torch" class="btn ghost" type="button" hidden>Light</button>
+            <button id="photo" class="btn ghost" type="button">Photo</button>
+            <input id="file" type="file" accept="image/*" hidden />
+          </div>
+          <form id="typed">
+            <input id="draft" type="text" autocomplete="off" placeholder="Type a barcode" aria-label="Barcode" />
+            <button class="btn" type="submit">Log</button>
+          </form>
+          <p id="entry-error" class="error" hidden></p>
+          <p id="banner" class="banner" hidden></p>
+          <div id="samples" class="samples">
+            <button class="chip" type="button" data-sample="SAMPLE-1001">SAMPLE-1001</button>
+            <button class="chip" type="button" data-sample="012345678905">012345678905</button>
+          </div>
+        </section>
+        <section class="panel" aria-label="Log">
+          <div class="log-head">
+            <h2>Log</h2>
+            <button id="clear" class="btn ghost" type="button" disabled>Clear</button>
+          </div>
+          <ul id="log"></ul>
+          <p id="empty" class="note">Nothing scanned yet.</p>
+        </section>
+      </div>
+      <p class="foot">Saved in this browser only. Nothing is uploaded.</p>
+    </main>
+    <dialog id="alert">
+      <h2>Duplicate</h2>
+      <p id="alert-copy"></p>
+      <button id="dismiss" class="btn" type="button">Got it</button>
+    </dialog>
+    <script type="module">
+      const KEY = "twice-pages-scans";
+      const SOUND_KEY = "twice-pages-sound";
+      const COOLDOWN = 2800;
+      const $ = (id) => document.getElementById(id);
+      let scans = load();
+      let sound = localStorage.getItem(SOUND_KEY) !== "off";
+      let reader = null;
+      let controls = null;
+      let armed = null;
+      let lastAt = new Map();
+      let paused = false;
+      let audio;
+
+      function load() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
+          return Array.isArray(parsed) ? parsed.filter((s) => s && typeof s.code === "string") : [];
+        } catch {
+          return [];
+        }
+      }
+      function save() {
+        localStorage.setItem(KEY, JSON.stringify(scans.slice(-2000)));
+      }
+      function unlock() {
+        audio ??= new AudioContext();
+        if (audio.state === "suspended") audio.resume();
+      }
+      function tone(freq, start, dur, gainValue) {
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(start);
+        osc.stop(start + dur + 0.02);
+      }
+      function cue(kind) {
+        if (!sound) return;
+        unlock();
+        const now = audio.currentTime;
+        if (kind === "duplicate") {
+          tone(698, now, 0.14, 0.16);
+          tone(466, now + 0.18, 0.22, 0.18);
+        } else tone(880, now, 0.07, 0.08);
+      }
+      function when(at) {
+        const delta = Date.now() - at;
+        if (delta < 60_000) return "just now";
+        if (delta < 3_600_000) return `${Math.floor(delta / 60_000)}m ago`;
+        return new Date(at).toLocaleString();
+      }
+      function commit(code, source, format) {
+        const text = code.trim();
+        if (!text) return showError("Enter a barcode first.");
+        if (text.length > 512) return showError("That code is too long to log.");
+        showError("");
+        const scan = { id: crypto.randomUUID(), code: text, at: Date.now(), source, format };
+        scans = [...scans, scan].slice(-2000);
+        save();
+        const same = scans.filter((item) => item.code === text);
+        const duplicate = same.length > 1;
+        render();
+        if (duplicate) {
+          paused = true;
+          stopCamera();
+          cue("duplicate");
+          navigator.vibrate?.([80, 40, 120]);
+          $("alert-copy").textContent = `${text} has been seen ${same.length} times. First time ${when(Math.min(...same.map((s) => s.at)))}.`;
+          $("alert").showModal();
+        } else {
+          cue("new");
+          navigator.vibrate?.(16);
+          const banner = $("banner");
+          banner.hidden = false;
+          banner.textContent = `${text} logged. First time.`;
+          setTimeout(() => { banner.hidden = true; }, 2600);
+        }
+      }
+      function showError(message) {
+        const node = $("entry-error");
+        node.hidden = !message;
+        node.textContent = message;
+      }
+      function groups() {
+        const map = new Map();
+        for (const scan of scans) {
+          const hit = map.get(scan.code);
+          if (!hit) map.set(scan.code, { ...scan, count: 1, lastAt: scan.at });
+          else {
+            hit.count += 1;
+            hit.lastAt = Math.max(hit.lastAt, scan.at);
+          }
+        }
+        return [...map.values()].sort((a, b) => b.lastAt - a.lastAt);
+      }
+      function render() {
+        const unique = new Set(scans.map((s) => s.code)).size;
+        const repeats = scans.length - unique;
+        $("n-scans").textContent = String(scans.length);
+        $("n-unique").textContent = String(unique);
+        $("n-repeats").textContent = String(repeats);
+        $("repeat-stat").classList.toggle("hot", repeats > 0);
+        $("lamp").classList.toggle("on", repeats > 0);
+        $("csv").disabled = scans.length === 0;
+        $("clear").disabled = scans.length === 0;
+        $("samples").hidden = repeats > 0;
+        $("sound").textContent = sound ? "Sound" : "Muted";
+        $("sound").setAttribute("aria-pressed", String(sound));
+        $("sound").setAttribute("aria-label", sound ? "Mute alert sound" : "Turn alert sound on");
+        const list = $("log");
+        list.replaceChildren();
+        const items = groups();
+        $("empty").hidden = items.length > 0;
+        for (const group of items) {
+          const li = document.createElement("li");
+          if (group.count > 1) li.className = "dup";
+          const code = document.createElement("div");
+          code.className = "code";
+          code.textContent = group.code;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${when(group.lastAt)} · ${group.source}${group.count > 1 ? " · " : ""}`;
+          if (group.count > 1) {
+            const badge = document.createElement("span");
+            badge.className = "badge";
+            badge.textContent = `×${group.count}`;
+            meta.append(badge);
+          }
+          li.append(code, meta);
+          list.append(li);
+        }
+      }
+      async function startCamera() {
+        unlock();
+        showError("");
+        $("idle-text").textContent = "Starting camera…";
+        const { BrowserMultiFormatReader } = await import("https://esm.sh/@zxing/browser@0.2.1");
+        reader = new BrowserMultiFormatReader(undefined, {
+          delayBetweenScanAttempts: 180,
+          delayBetweenScanSuccess: 180,
+        });
+        const video = $("video");
+        try {
+          controls = await reader.decodeFromConstraints(
+            { video: { facingMode: "environment" } },
+            video,
+            (result) => {
+              if (!result || paused) return;
+              const text = result.getText();
+              if (!text || text.length < 4) { armed = null; return; }
+              if (armed !== text) { armed = text; return; }
+              const now = Date.now();
+              if (now - (lastAt.get(text) ?? 0) < COOLDOWN) return;
+              lastAt.set(text, now);
+              armed = null;
+              commit(text, "camera");
+            },
+          );
+        } catch {
+          try {
+            controls = await reader.decodeFromConstraints({ video: true }, video, (result) => {
+              if (!result || paused) return;
+              const text = result.getText();
+              if (!text || text.length < 4) return;
+              const now = Date.now();
+              if (now - (lastAt.get(text) ?? 0) < COOLDOWN) return;
+              lastAt.set(text, now);
+              commit(text, "camera");
+            });
+          } catch (error) {
+            $("idle").hidden = false;
+            $("idle-text").textContent = error?.name === "NotAllowedError"
+              ? "Camera blocked. Allow it in the browser, or type the code."
+              : "No camera available. Type the code or use a photo.";
+            return;
+          }
+        }
+        $("idle").hidden = true;
+        $("start").hidden = true;
+        $("stop").hidden = false;
+      }
+      function stopCamera() {
+        try { controls?.stop(); } catch {}
+        controls = null;
+        $("idle").hidden = false;
+        $("idle-text").textContent = "Point the camera at a barcode.";
+        $("start").hidden = false;
+        $("stop").hidden = true;
+        $("torch").hidden = true;
+      }
+      $("start").onclick = () => startCamera();
+      $("stop").onclick = () => stopCamera();
+      $("typed").onsubmit = (event) => {
+        event.preventDefault();
+        unlock();
+        commit($("draft").value, "typed");
+        $("draft").value = "";
+      };
+      $("photo").onclick = () => $("file").click();
+      $("file").onchange = async () => {
+        const file = $("file").files?.[0];
+        $("file").value = "";
+        if (!file) return;
+        unlock();
+        const { BrowserMultiFormatReader } = await import("https://esm.sh/@zxing/browser@0.2.1");
+        const url = URL.createObjectURL(file);
+        try {
+          const result = await new BrowserMultiFormatReader().decodeFromImageUrl(url);
+          commit(result.getText(), "photo");
+        } catch {
+          showError("No barcode found in that photo.");
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      };
+      document.querySelectorAll("[data-sample]").forEach((button) => {
+        button.onclick = () => { unlock(); commit(button.dataset.sample, "typed"); };
+      });
+      $("sound").onclick = () => {
+        unlock();
+        sound = !sound;
+        localStorage.setItem(SOUND_KEY, sound ? "on" : "off");
+        render();
+      };
+      $("csv").onclick = () => {
+        const lines = ["code,scanned_at,source"];
+        for (const scan of scans) lines.push([JSON.stringify(scan.code), new Date(scan.at).toISOString(), scan.source].join(","));
+        const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "twice-scans.csv";
+        link.click();
+        URL.revokeObjectURL(url);
+      };
+      $("clear").onclick = () => {
+        if (!confirm("Clear the whole log?")) return;
+        scans = [];
+        save();
+        paused = false;
+        render();
+      };
+      $("dismiss").onclick = () => { paused = false; $("alert").close(); };
+      $("alert").addEventListener("cancel", (event) => { event.preventDefault(); paused = false; $("alert").close(); });
+      render();
+    </script>
+  </body>
+</html>
